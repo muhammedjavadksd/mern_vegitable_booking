@@ -54,20 +54,20 @@ let userHelperMethod = {
     },
 
     tokenValidation: async function (token) {
-        try { 
+        try {
             let findUserByToken = await UserModal.findOne({ token: token });
-          
+
             if (findUserByToken) {
                 let currentDate = Date.now();
                 if (findUserByToken.tokenExpire > currentDate) {
                     return true;
-                } else { 
+                } else {
                     return false;
                 }
-            } else { 
+            } else {
                 return false;
             }
-        } catch (e) { 
+        } catch (e) {
             return false;
         }
     },
@@ -115,6 +115,7 @@ let userHelperMethod = {
 
     userSignUp: async function (user) {
 
+        user.otp_validity = Date.now() + 300000
         try {
             let newUser;
             if (user && user._id) {
@@ -124,7 +125,6 @@ let userHelperMethod = {
                     { new: true, upsert: true }
                 );
             } else {
-                user.otp_validity = Date.now() + 300000
                 user.isOtpValidated = false;
                 newUser = await UserModal.create(user);
             }
@@ -134,7 +134,27 @@ let userHelperMethod = {
         } catch (e) {
             return e;
         }
+    },
+
+
+    updateUser: function (userid, data) {
+        return new Promise((resolve, reject) => {
+            UserModal.updateOne(
+                {
+                    _id: new mongoose.Types.ObjectId(userid)
+                },
+                {
+                    $set: data
+                }
+            ).then((data) => {
+                resolve(data)
+            }).catch((err) => {
+                reject(err)
+            })
+        })
     }
+
+
 }
 
 

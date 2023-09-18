@@ -9,7 +9,7 @@ router.get("/token_validation:token", userController.tokenValidation)
 
 //POST METHOD
 router.post("/sign_up", userController.userSignUpPost)
-router.post("/otp_validation", userController.otpValidation)
+router.post("/otp_validation", userController.otpValidation) 
 router.post("/login", userController.userLoginPost)
 router.post("/forget_password", userController.forgetPassword)
 router.post("/new_password", userController.resetPassword)

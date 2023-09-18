@@ -6,97 +6,143 @@ let const_data = require("../config/const");
 let crypto = require("crypto");
 const { default: mongoose, mongo } = require("mongoose");
 const userHelperMethod = require("../helper/UserHelper/userHelperMethod");
-var jwt = require('jsonwebtoken');
+let jwt = require('jsonwebtoken');
 let tokenHelper = require("../helper/Token/TokenHelper")
+let commonHelper = require("../helper/CommonHelper/CommonHelper")
 
 const userController = {
     userLoginPost: (req, res) => {
+        console.log("This is working")
         let { username, password } = req.body;
+        password = password.trim()
 
         UserModal.findOne({
             $or: [
                 { email: username },
                 { username: username },
             ]
-        }).then((user) => {
+        }).then(async (user) => {
             console.log(user)
             if (user) {
                 if (user.isOtpValidated) {
-                    bcrypt.compare(password, user.password, function (err, result) {
-                        if (err) {
-                            res.status(404).send({ status: false, error: true, msg: "Incorrect Password" })
+                    let userPassword = user.password
+
+
+                    try {
+                        const comparePassword = await bcrypt.compare(password, userPassword);
+
+                        if (comparePassword) {
+                            console.log("Compared Password", comparePassword);
+                            const token = await tokenHelper.TokenGenerator(user);
+
+                            if (token) {
+                                const data = await userHelperMethod.updateUser(user._id, { access_token: token });
+                                data.access_token = token;
+
+                                if (data) {
+                                    user.jwt = data;
+                                    return res.send({ status: true, error: false, user, msg: "Logging success" });
+                                } else {
+                                    throw new Error("Something Went Wrong");
+                                }
+                            } else {
+                                throw new Error("Token Generation Failed");
+                            }
                         } else {
-                            res.status(200).send({ status: true, error: false, user, msg: "Loggin success" })
+                            throw new Error("Incorrect Password");
                         }
-                    });
+                    } catch (err) {
+                        console.log("ERROR IS", err);
+                        return res.send({ status: false, error: true, msg: err.message });
+                    }
+
+
+                    // bcrypt.compare(password, userPassword).then(comparePassword => {
+                    //     if (comparePassword) {
+                    //         console.log("Compared Password", comparePassword);
+                    //         return tokenHelper.TokenGenerator(user);
+                    //     } else {
+                    //         return new Error("Incorrect Password")
+                    //         //return res.send({ status: false, error: true, msg: "Incorrect Password" });
+                    //     }
+                    // }).then(token => {
+                    //     if (token) {
+                    //         return userHelperMethod.updateUser(user._id, { access_token: token });
+                    //     }
+                    // }).then(data => {
+                    //     if (data) {
+                    //         user.jwt = data;
+                    //         return res.send({ status: true, error: false, user, msg: "Logging success" });
+                    //     } else {
+                    //         return new Error("Something Went Wrong")
+                    //         //return res.send({ status: false, error: true, msg: "Something Went Wrong 1" });
+                    //     }
+                    // }).catch(err => {
+                    //     console.log("ERROR IS", err);
+                    //     return res.send({ status: false, error: true, msg: err.message  });
+                    // });
                 } else {
-                    res.status(404).send({ status: false, error: true, msg: "OTP Is not validated" })
+                    res.send({ status: false, error: true, msg: "OTP Is not validated" })
                 }
             } else {
-                res.status(404).send({ status: false, error: true, msg: "Username/email address couldn't find" })
+                res.send({ status: false, error: true, msg: "Username/email address couldn't find" })
             }
         }).catch((err) => {
-            res.status(404).send({ status: false, error: true, msg: "Something Went Wrong" + err })
+            res.send({ status: false, error: true, msg: "Something Went Wrong 2" + err })
         })
     },
 
 
-    userSignUpPost: (req, res) => {
+    userSignUpPost: async (req, res) => {
 
-        let { firstName, lastName, phone, password, email } = req.body
+        let { firstName, lastName, phone, email } = req.body
         let userName = "";
 
-        bcrypt.hash(password, saltRounds, function (err, hash) {
-            if (err) {
-                res.status(404).send({ status: false, error: true, msg: "PASSWORD HASH FAILED" })
-            } else {
 
-                let otp = Math.floor(Math.random() * (99999 - 10000 + 1)) + 10000
-                let userData = {
-                    username: userName,
-                    email: email,
-                    mobile: phone,
-                    first_name: firstName,
-                    last_name: lastName,
-                    password: hash,
-                    otp: otp
+        let otp = Math.floor(Math.random() * (99999 - 10000 + 1)) + 10000
+        let userData = {
+            username: userName,
+            email: email,
+            mobile: phone,
+            first_name: firstName,
+            last_name: lastName,
+            otp: otp
+        }
+
+        UserModal.findOne({
+            $or: [
+                { email },
+                { mobile: phone },
+            ]
+        }).then(async (findUser) => {
+            console.log("User", findUser)
+            if (findUser != null) {
+                if (findUser.isOtpValidated) {
+                    res.send({ status: false, error: true, msg: "User Already Exits" });
+                    process.exit(1)
+                } else {
+                    userData._id = findUser._id;
                 }
-
-                UserModal.findOne({
-                    $or: [
-                        { email },
-                        { mobile: phone },
-                    ]
-                }).then(async (findUser) => {
-                    console.log("User", findUser)
-                    if (findUser != null) {
-                        if (findUser.isOtpValidated) {
-                            res.send({ status: false, error: true, msg: "User Already Exits" });
-                            process.exit(1)
-                        } else {
-                            userData._id = findUser._id;
-                        }
-                    }
+            }
+            try {
+                console.log("Final Data", userData)
+                let userSignUp = await userHelper.userSignUp(userData);
+                console.log(userSignUp)
+                if (userSignUp) {
                     try {
-                        console.log("Final Data", userData)
-                        let userSignUp = await userHelper.userSignUp(userData);
-                        console.log(userSignUp)
-                        if (userSignUp) {
-                            try {
-                                await userHelper.sendOTPSignup(otp, email)
-                                res.send({ status: true, user: userSignUp })
-                            } catch (e) {
-                                res.send({ status: false, error: true, msg: "OTP Sending Failed" })
-                            }
-                        } else {
-                            res.send({ status: false, error: true, msg: "User Insertion Failed" })
-                        }
+                        await userHelper.sendOTPSignup(otp, email)
+                        res.send({ status: true, user: userSignUp })
                     } catch (e) {
-                        res.send({ status: false, error: err.message })
+                        res.send({ status: false, error: true, msg: "OTP Sending Failed" })
                     }
-                })
+                } else {
+                    res.send({ status: false, error: true, msg: "User Insertion Failed" })
+                }
+            } catch (e) {
+                res.send({ status: false, error: err.message })
             }
         })
+
     },
 
 
@@ -180,22 +226,35 @@ const userController = {
         }
     },
 
-
     validateJWT: function (req, res) {
-        if (req.headers.authorization && req.headers.authorization.split(' ')[0] === 'Bearer') {
+        if ((req.headers.authorization && req.headers.authorization.split(' ')[0] === 'Bearer') && (req.headers.refresh_reference)) {
             let access_token = req.headers.authorization.split(' ')[1];
+            let refresh_reference = req.headers.refresh_reference;
+
             try {
                 jwt.verify(access_token, process.env.JWT_SECRET, (err, data) => {
-                    if (err) res.status(403).send({ status: false, error: true, msg: "Token is not valid" })
-                    else res.status(200).send({ status: true, error: false, msg: "Token is   valid" })
+                    if (err) {
+                        res.status(403).send({ status: false, error: true, msg: "Token is not valid" })
+                    } else {
+                        commonHelper.findSingleUser(access_token).then((user) => {
+                            if (user) {
+                                res.status(200).send({ status: true, user, error: false, msg: "Token is   valid" })
+                            } else {
+                                res.status(404).send({ status: false, error: true, msg: "User may not exist" })
+                            }
+                        }).catch((err) => {
+                            res.status(404).send({ status: false, error: true, msg: "Something Went Wrong" })
+                        })
+                    }
                 })
             } catch (err) {
                 res.status(403).send({ status: false, error: true, msg: "Token is not valid" })
             }
-        } else {
-            res.status(403).send({ status: false, error: true, msg: "Token is not valid" })
+        }else{
+            res.status(404).send({ status: false, error: true, msg: "Header couldn't found" })
         }
     },
+
 
     reGenerateJWT: function (req, res) {
         let referenceRefresh = req.query.refresh_token;
@@ -216,20 +275,32 @@ const userController = {
         })
     },
 
+
     otpValidation: function (req, res) {
         let otp = req.body.otp;
         let userid = req.body.userid;
+        let password = req.body.password
+
 
         UserModal.findOne({ otp, _id: new mongoose.Types.ObjectId(userid) }).then((user) => {
             if (user) {
                 let otp_validity = user.otp_validity;
-                console.log(otp_validity)
+                console.log(req.body)
                 if (otp_validity > Date.now()) {
-                    UserModal.updateOne({ _id: new mongoose.Types.ObjectId(userid) }, { $set: { isOtpValidated: true } }).then((userUpdated) => {
-                        if (userUpdated && userUpdated.modifiedCount > 0) {
-                            res.send({ status: true, error: false, msg: "OTP validated success" })
+                    bcrypt.hash(password, saltRounds, function (err, hash) {
+                        if (err) {
+                            res.send({ status: false, error: true, msg: "Something Went Wrong 1" + err })
                         } else {
-                            res.send({ status: false, error: true, msg: "Something went wrong" })
+
+                            UserModal.updateOne({ _id: new mongoose.Types.ObjectId(userid) }, { $set: { isOtpValidated: true, password: hash } }).then((userUpdated) => {
+                                if (userUpdated && userUpdated.modifiedCount > 0) {
+                                    res.send({ status: true, user, error: false, msg: "OTP validated success" })
+                                } else {
+                                    res.send({ status: false, error: true, msg: "Something went wrong 2 3" })
+                                }
+                            }).catch((err) => {
+                                res.send({ status: false, error: true, msg: "Something went wrong 4" })
+                            })
                         }
                     })
                 } else {
@@ -239,9 +310,10 @@ const userController = {
                 res.send({ status: false, error: true, msg: "Incorrect OTP" })
             }
         }).catch((err) => {
-            res.send({ status: false, error: true, msg: "Something Went Wrong" })
+            res.send({ status: false, error: true, msg: "Something Went Wrong 5" + err })
         })
     }
+
 }
 
 

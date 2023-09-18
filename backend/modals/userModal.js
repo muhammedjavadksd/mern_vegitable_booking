@@ -26,10 +26,7 @@ let UserModal = new mongoose.Schema({
         require: true,
     },
     profile_pic: String,
-    password: {
-        type: String,
-        require: true,
-    },
+    password: String,
     status: String,
     is_suspended: Boolean,
     otp: Number,
