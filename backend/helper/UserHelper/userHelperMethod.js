@@ -21,7 +21,7 @@ let userHelperMethod = {
         
         If you did request a password reset, please follow the instructions below to reset your password:
         
-        1. Click the following link to reset your password: <a href="https://${url}">Click here for reset password</a> <br>
+        1. Click the following link to reset your password: <a href="${url}">Click here for reset password</a> <br>
          
         2. You will be directed to a page where you can create a new password for your account. <br>
 
@@ -132,7 +132,7 @@ let userHelperMethod = {
             console.log(newUser);
             return newUser || false;
         } catch (e) {
-            return e;
+            
         }
     },
 

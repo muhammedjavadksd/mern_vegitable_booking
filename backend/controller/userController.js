@@ -33,7 +33,7 @@ const userController = {
 
                         if (comparePassword) {
                             console.log("Compared Password", comparePassword);
-                            const token = await tokenHelper.TokenGenerator(user);
+                            const token = await tokenHelper.TokenGenerator({ name: user.name, _id: user._id });
 
                             if (token) {
                                 const data = await userHelperMethod.updateUser(user._id, { access_token: token });
@@ -52,35 +52,9 @@ const userController = {
                             throw new Error("Incorrect Password");
                         }
                     } catch (err) {
-                        console.log("ERROR IS", err);
                         return res.send({ status: false, error: true, msg: err.message });
                     }
 
-
-                    // bcrypt.compare(password, userPassword).then(comparePassword => {
-                    //     if (comparePassword) {
-                    //         console.log("Compared Password", comparePassword);
-                    //         return tokenHelper.TokenGenerator(user);
-                    //     } else {
-                    //         return new Error("Incorrect Password")
-                    //         //return res.send({ status: false, error: true, msg: "Incorrect Password" });
-                    //     }
-                    // }).then(token => {
-                    //     if (token) {
-                    //         return userHelperMethod.updateUser(user._id, { access_token: token });
-                    //     }
-                    // }).then(data => {
-                    //     if (data) {
-                    //         user.jwt = data;
-                    //         return res.send({ status: true, error: false, user, msg: "Logging success" });
-                    //     } else {
-                    //         return new Error("Something Went Wrong")
-                    //         //return res.send({ status: false, error: true, msg: "Something Went Wrong 1" });
-                    //     }
-                    // }).catch(err => {
-                    //     console.log("ERROR IS", err);
-                    //     return res.send({ status: false, error: true, msg: err.message  });
-                    // });
                 } else {
                     res.send({ status: false, error: true, msg: "OTP Is not validated" })
                 }
@@ -88,14 +62,15 @@ const userController = {
                 res.send({ status: false, error: true, msg: "Username/email address couldn't find" })
             }
         }).catch((err) => {
-            res.send({ status: false, error: true, msg: "Something Went Wrong 2" + err })
+            res.send({ status: false, error: true, msg: "Something Went Wrong" })
         })
     },
 
 
     userSignUpPost: async (req, res) => {
 
-        let { firstName, lastName, phone, email } = req.body
+        let { firstName, lastName, phoneNumber, email } = req.body
+        console.log(req.body)
         let userName = "";
 
 
@@ -103,7 +78,7 @@ const userController = {
         let userData = {
             username: userName,
             email: email,
-            mobile: phone,
+            mobile: phoneNumber,
             first_name: firstName,
             last_name: lastName,
             otp: otp
@@ -112,19 +87,22 @@ const userController = {
         UserModal.findOne({
             $or: [
                 { email },
-                { mobile: phone },
+                { mobile: phoneNumber },
             ]
         }).then(async (findUser) => {
             console.log("User", findUser)
-            if (findUser != null) {
-                if (findUser.isOtpValidated) {
-                    res.send({ status: false, error: true, msg: "User Already Exits" });
-                    process.exit(1)
-                } else {
-                    userData._id = findUser._id;
-                }
-            }
+
             try {
+
+                if (findUser != null) {
+                    if (findUser.isOtpValidated) {
+                        return res.send({ status: false, error: true, msg: "User Already Exits" });
+
+                    } else {
+                        userData._id = findUser._id;
+                    }
+                }
+
                 console.log("Final Data", userData)
                 let userSignUp = await userHelper.userSignUp(userData);
                 console.log(userSignUp)
@@ -150,6 +128,7 @@ const userController = {
     forgetPassword: function (req, res) {
 
         let email = req.body.email;
+        let domain = req.body.domain;
 
         UserModal.findOne({ email }).then(async (user) => {
             if (user) {
@@ -158,7 +137,7 @@ const userController = {
                 UserModal.updateOne(
                     {
                         _id: new mongoose.Types.ObjectId(user._id)
-                    },
+                    },  
                     {
                         $set: {
                             token: token,
@@ -167,7 +146,7 @@ const userController = {
                     }
                 ).then((updated) => {
                     console.log(updated)
-                    userHelper.sendForgetPasswordEmail(email, const_data.DOMAIN_NAME + "/reset_password/" + token, user.username).then(() => {
+                    userHelper.sendForgetPasswordEmail(email, domain + "/reset_password/" + token, user.username).then(() => {
                         res.send({ status: true, error: false, msg: "Email successfuly sended" })
                     }).catch(() => {
                         res.send({ status: false, error: true, msg: "Email sending failed" })
@@ -227,50 +206,60 @@ const userController = {
     },
 
     validateJWT: function (req, res) {
+        console.log(req.headers)
         if ((req.headers.authorization && req.headers.authorization.split(' ')[0] === 'Bearer') && (req.headers.refresh_reference)) {
             let access_token = req.headers.authorization.split(' ')[1];
             let refresh_reference = req.headers.refresh_reference;
+
+
 
             try {
                 jwt.verify(access_token, process.env.JWT_SECRET, (err, data) => {
                     if (err) {
                         res.status(403).send({ status: false, error: true, msg: "Token is not valid" })
                     } else {
-                        commonHelper.findSingleUser(access_token).then((user) => {
+                        commonHelper.findSingleUser(refresh_reference).then((user) => {
                             if (user) {
                                 res.status(200).send({ status: true, user, error: false, msg: "Token is   valid" })
                             } else {
-                                res.status(404).send({ status: false, error: true, msg: "User may not exist" })
+                                res.status(403).send({ status: false, error: true, msg: "User may not exist" })
                             }
                         }).catch((err) => {
-                            res.status(404).send({ status: false, error: true, msg: "Something Went Wrong" })
+                            console.log(err)
+                            res.status(403).send({ status: false, error: true, msg: "Something Went Wrong" })
                         })
                     }
                 })
             } catch (err) {
                 res.status(403).send({ status: false, error: true, msg: "Token is not valid" })
             }
-        }else{
+        } else {
             res.status(404).send({ status: false, error: true, msg: "Header couldn't found" })
         }
     },
 
 
     reGenerateJWT: function (req, res) {
-        let referenceRefresh = req.query.refresh_token;
 
-        UserModal.findById(referenceRefresh).then((user) => {
+        let referenceRefresh = req.body.refresh_token;
+        UserModal.findById(referenceRefresh).then(async (user) => {
             if (user) {
                 try {
-                    let accessToken = tokenHelper.TokenGenerator(user)
-                    res.send({ status: true, token: accessToken, error: false })
+                    console.log("WORKED");
+                    let accessToken = await tokenHelper.TokenGenerator(user)
+                    let responseData = { status: true, token: accessToken, error: false }
+                    console.log(responseData)
+                    res.send(responseData)
                 } catch (e) {
+                    console.log("WORKED1");
                     res.send({ status: false, error: true })
                 }
             } else {
+                console.log("WORKED2");
                 res.send({ status: false, error: true, msg: "Token is completly invalid" })
             }
         }).catch((err) => {
+            console.log("WORKED3");
             res.send({ status: false, error: true, msg: "Something Went Wrong" })
         })
     },
