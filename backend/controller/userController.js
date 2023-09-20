@@ -137,7 +137,7 @@ const userController = {
                 UserModal.updateOne(
                     {
                         _id: new mongoose.Types.ObjectId(user._id)
-                    },  
+                    },
                     {
                         $set: {
                             token: token,
@@ -301,7 +301,161 @@ const userController = {
         }).catch((err) => {
             res.send({ status: false, error: true, msg: "Something Went Wrong 5" + err })
         })
+    },
+
+
+    getWalletHistory: function (req, res) {
+        let userid = req.body.userid;
+
+        commonHelper.getUserWalletHistory(userid).then((data) => {
+            res.send({ status: true, error: false, data })
+        }).catch((err) => {
+            res.send({ status: false, error: true })
+        })
+
+    },
+
+
+    getOrders: function (req, res) {
+        let userid = req.body.userid;
+        userHelperMethod.getUserOrders(userid).then((order) => {
+            
+            res.send({ status: true, error: false, orders: order })
+        }).catch((err) => {
+            res.send({ status: false, error: true })
+        })
+    },
+
+    getSingleOrder: function (req, res) {
+        let order_id = req.body.order_id;
+        commonHelper.getSingleOrder(order_id).then((order) => {
+            res.send({ status: true, error: false, order: order })
+        }).catch((err) => {
+            res.send({ status: false, error: true })
+        })
+    },
+
+
+    profileRelated: function (req, res) {
+        let user_id = req.body.userid;
+        try {
+            let user_data = JSON.parse(req.body.userdata);
+
+            userHelperMethod.updateUser(user_id, user_data).then(() => {
+                res.send({ status: true, error: false, msg: "Profile update success" })
+            }).catch((err) => {
+                res.send({ status: false, error: true, msg: "Something went wrong" })
+            })
+        } catch (e) {
+            res.send({ status: false, error: true, msg: "Something went wrong" })
+        }
+    },
+
+
+    profileImageUpdate: function (req, res) {
+        let user_id = req.body.userid;
+        let profileImage = req.files.profile;
+
+        userHelper.profilePicUpdate(profileImage, user_id).then(() => {
+            res.send({ status: true, error: false, msg: "Profile Pic update success" })
+        }).catch((err) => {
+            res.send({ status: false, error: true, msg: "Something went wrong" + err})
+        })
+
+    },
+
+
+    getWishlistItems: function (req, res) {
+        let user_id = req.body.userid;
+        userHelperMethod.getWishListItems(user_id).then((wishlistItem) => {
+            res.send({ status: true, error: false, wishlist: wishlistItem })
+        }).catch((err) => {
+            res.send({ status: false, error: true, msg: "Something went wrong" })
+        })
+    },
+
+    deleteWishlist: function (req, res) {
+        let user_id = req.body.userid;
+        let wishlist_id = req.body.wishlist_id;
+
+        userHelperMethod.deleteWishlist(wishlist_id, user_id).then(() => {
+            res.send({ status: true, error: false })
+        }).catch((err) => {
+            res.send({ status: false, error: true, msg: "Something went wrong" })
+        })
+    },
+
+
+    getAddressList: function (req, res) {
+        let user_id = req.body.userid;
+
+        userHelperMethod.getAddressList(user_id).then((address) => {
+            res.send({ status: true, error: false, address })
+        }).catch((err) => {
+            res.send({ status: false, error: true, msg: "Something went wrong" })
+        })
+    },
+
+
+    addAddress: function (req, res) {
+        let user_id = req.body.userid;
+        try {
+            let address = JSON.parse(req.body.address);
+            address.user_id = user_id;
+
+            userHelperMethod.addAddress(address).then((data) => {
+                res.send({ status: true, error: false })
+            }).catch((err) => {
+                res.send({ status: false, error: true, msg: "Something went wrong" })
+            })
+        } catch (err) {
+            res.send({ status: false, error: true, msg: "Something went wrong" })
+        }
+
+    },
+
+
+    editAddress: function (req, res) {
+        let user_id = req.body.userid;
+        let address_id = req.body.address_id;
+
+        let address = req.body.address;
+
+        userHelperMethod.updateAddress(address, user_id, address_id).then((data) => {
+            res.send({ status: true, error: false })
+        }).catch((err) => {
+            res.send({ status: false, error: true, msg: "Something went wrong" })
+        })
+
+    },
+
+
+    deleteAddress: function (req, res) {
+        let user_id = req.body.userid;
+        let address_id = req.body.address_id;
+
+        userHelperMethod.deleteAddress(address_id, user_id).then((data) => {
+            res.send({ status: true, error: false })
+        }).catch((err) => {
+            res.send({ status: false, error: true, msg: "Something went wrong" })
+        })
+    },
+
+
+    getSingleAddress: (req, res) => {
+        let address_id = req.body.address_id;
+        commonHelper.getSingleAddress(address_id).then((data) => {
+            res.send({ status: true, error: false, data })
+        }).catch((err) => {
+            res.send({ status: false, error: true, msg: "Something went wrong" + err })
+        })
+
     }
+
+
+
+
+
 
 }
 

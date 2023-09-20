@@ -3,6 +3,10 @@ let nodeMailer = require("nodemailer");
 let const_data = require("../../config/const");
 let UserModal = require("../../modals/userModal");
 const { default: mongoose } = require("mongoose");
+const OrdersModalDb = require("../../modals/OrderModal");
+const UserModalDb = require("../../modals/userModal");
+const wishListModelDb = require("../../modals/WishListModel");
+const addressModelDB = require("../../modals/AddressModel");
 
 let userHelperMethod = {
 
@@ -132,7 +136,7 @@ let userHelperMethod = {
             console.log(newUser);
             return newUser || false;
         } catch (e) {
-            
+
         }
     },
 
@@ -152,7 +156,107 @@ let userHelperMethod = {
                 reject(err)
             })
         })
+    },
+
+    getUserOrders: (userid) => {
+        return new Promise((resolve, reject) => {
+            OrdersModalDb.find({ user_id: userid }).then((orders) => {
+                resolve(orders)
+            }).catch((err) => {
+                reject(err)
+            })
+        })
+    },
+
+
+    getWishListItems: (userid) => {
+        return new Promise((resolve, reject) => {
+            wishListModelDb.find({ user_id: userid }).then((wishlistItems) => {
+                resolve(wishlistItems)
+            }).catch((err) => {
+                reject(err)
+            })
+        })
+    },
+
+    deleteWishlist: (wishlist_id, user_id) => {
+        return new Promise((resolve, reject) => {
+            wishListModelDb.deleteOne({ user_id: user_id, _id: new mongoose.Types.ObjectId(user_id) }).then(() => {
+                resolve()
+            }).catch((err) => {
+                reject(err)
+            })
+        })
+    },
+
+
+    getAddressList: (user_id) => {
+        return new Promise((resolve, reject) => {
+            addressModelDB.find({ user_id }).then((address) => {
+                resolve(address)
+            }).catch((err) => {
+                reject(err)
+            })
+        })
+    },
+
+
+    addAddress: function (address) {
+        return new Promise((resolve, reject) => {
+            new addressModelDB(address).save().then((data) => {
+                resolve(data)
+            }).catch((err) => {
+                reject(err)
+            })
+        })
+    },
+
+    updateAddress: function (address, user_id, address_id) {
+        return new Promise((resolve, reject) => {
+            addressModelDB.updateOne({ _id: new mongoose.Types.ObjectId(address_id), user_id: new mongoose.Types.ObjectId(user_id) }, { $set: { address } }).then(() => {
+                resolve()
+            }).catch((err) => {
+                reject(err)
+            })
+        })
+    },
+
+    deleteAddress: function (address_id, user_id) {
+        return new Promise((resolve, reject) => {
+            addressModelDB.deleteOne({ _id: new mongoose.Types.ObjectId(address_id), user_id: new mongoose.Types.ObjectId(user_id) }).then(() => {
+                resolve()
+            }).catch((err) => {
+                reject(err)
+            })
+        })
+    },
+
+
+    profilePicUpdate: function (profileImage, user_id) {
+
+        let profileName = "user_profile" + profileImage?.name
+
+        return new Promise((resolve, reject) => {
+            try {
+                profileImage.mv("./public/images/userProfile/" + profileName, (err) => {
+                    if (err) {
+                        reject(err)
+                    } else {
+                        this.updateUser(user_id, { profile: profileName }).then(() => {
+                            resolve()
+                        }).catch((err) => {
+                            reject(err)
+                        })
+                    }
+                })
+            } catch (e) {
+                reject(e)
+            }
+        })
+
     }
+
+
 
 
 }
